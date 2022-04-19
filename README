@@ -1,1 +1,5 @@
-echo hello | pipe-to-file /tmp/file.txt
+idea/IntelliJ launcher
+
+./i # create a temp file under ~/Documents/new and open in IntelliJ
+./i my-file # create a new file by name and open in IntelliJ. if one of the parent directories has an idea project open the project as well
+./i my-dir # if this dir or one of the parent directories has an idea project open the project, otherwise create a new idea project

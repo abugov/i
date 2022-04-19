@@ -17,7 +17,7 @@ func main() {
     args := os.Args[1:]
 
     usr, _ := user.Current()
-    // use ~/documetns/new project for temp files and files without a project
+    // use ~/documents/new project for temp files and files without a project
     docsNewDir := filepath.Join(usr.HomeDir, "Documents/new")
 
     var path string
