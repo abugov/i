@@ -27,8 +27,7 @@ func main() {
     if len(args) == 0 {
         // TODO: try -t (Opens with default text editor) so .txt can be removed
         path = filepath.Join(docsNewDir, time.Now().Format("2006-01-02_15:04:05") + ".txt")
-        file := createFileOrDie(path)
-        file.Close()
+        createFileOrDie(path).Close()
     }
 
     // open the given file or project
@@ -42,12 +41,13 @@ func main() {
 
         // create none-existing file
         if !pathExistsOrDie(path) {
-            if !choice("create " + path + " ?") {
+            if isPiped() {
+                fmt.Printf("creating %s ...\n", path)
+            } else if !choice("create " + path + " ?") {
                 os.Exit(0)
             }
 
-            file := createFileOrDie(path)
-            file.Close()
+            createFileOrDie(path).Close()
         }
 
         // traverse up the dir tree and locate an idea project
@@ -60,6 +60,10 @@ func main() {
                 project = ""
             }
         } else if isDirOrDie(path) {
+            if isPiped() {
+                log.Fatalf("can't pipe into dir %s\n", path)
+            }
+
             // a single dir was provided but no project was found up the hierarchy, intellij will create .idea dir
             if !choice("create new idea project at " + path + " ?") {
                 os.Exit(0)
@@ -74,6 +78,14 @@ func main() {
         startIntelliJ(project, path)
     } else {
         startIntelliJ(path)
+    }
+
+    if isPiped() {
+        if isDirOrDie(path) {
+            log.Fatalf("can't pipe into dir %s\n", path)
+        }
+
+        pipeToFile(path)
     }
 }
 
@@ -109,11 +121,11 @@ func isDirOrDie(dir string) bool {
 
 // return true for "Y", "y" and ""
 func choice(message string) bool {
-    var s string
-    r := bufio.NewReader(os.Stdin)
     fmt.Print(message + " [Y/n] ")
-    s, _ = r.ReadString('\n')
-    c := strings.ToLower(strings.TrimSpace(s))
+
+    var c string
+    fmt.Scanf("%s", &c)
+    c = strings.ToLower(strings.TrimSpace(c))
 
     return c == "y" || c == ""
 }
@@ -168,23 +180,12 @@ func startIntelliJ(paths ...string) {
     }
 }
 
-/*
-func main() {
-	cmd := exec.Command("tr", "a-z", "A-Z")
-	cmd.Stdin = strings.NewReader("some input")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	err := cmd.Run()
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("in all caps: %q\n", out.String())
+func isPiped() bool {
+    fi, _ := os.Stdin.Stat()
+    return (fi.Mode() & os.ModeCharDevice) == 0
 }
-*/
 
-func pipeToFile() {
-    file := os.Args[1]
-
+func pipeToFile(file string) {
     f, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
     if err != nil {
         log.Fatal(err)
@@ -197,11 +198,7 @@ func pipeToFile() {
     scanner.Buffer(buf, 4*1024)
 
     for scanner.Scan() {
-        _, err := fmt.Fprintln(f, scanner.Text())
-
-        if err != nil {
-            log.Fatal(err)
-        }
+        fmt.Fprintln(f, scanner.Text())
     }
 
     if err := scanner.Err(); err != nil {
