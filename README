@@ -1,0 +1,1 @@
+echo hello | pipe-to-file /tmp/file.txt
