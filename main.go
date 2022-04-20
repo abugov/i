@@ -7,10 +7,10 @@ import (
     "log"
     "os"
     "time"
-    "errors"
     "strings"
     "os/user"
     "path/filepath"
+    dod "i/doordie"
 )
 
 func main() {
@@ -27,7 +27,14 @@ func main() {
     if len(args) == 0 {
         // TODO: try -t (Opens with default text editor) so .txt can be removed
         path = filepath.Join(docsNewDir, time.Now().Format("2006-01-02_15:04:05") + ".txt")
-        createFileOrDie(path).Close()
+        project = docsNewDir
+
+        if !dod.PathExists(docsNewDir) {
+            fmt.Printf("creating idea project %s ...\n", docsNewDir)
+            dod.CreateDir(docsNewDir)
+        }
+
+        dod.CreateFile(path).Close()
     }
 
     // open the given file or project
@@ -40,26 +47,26 @@ func main() {
         }
 
         // create none-existing file
-        if !pathExistsOrDie(path) {
+        if !dod.PathExists(path) {
             if isPiped() {
                 fmt.Printf("creating %s ...\n", path)
             } else if !choice("create " + path + " ?") {
                 os.Exit(0)
             }
 
-            createFileOrDie(path).Close()
+            dod.CreateFile(path).Close()
         }
 
         // traverse up the dir tree and locate an idea project
         project = findIdea(path)
 
         if project != "" {
-            if isDirOrDie(path) {
+            if dod.IsDir(path) {
                 // open the project instead of the input sub-dir, otherwise idea will create a sub-project
                 path = project
                 project = ""
             }
-        } else if isDirOrDie(path) {
+        } else if dod.IsDir(path) {
             if isPiped() {
                 log.Fatalf("can't pipe into dir %s\n", path)
             }
@@ -71,6 +78,11 @@ func main() {
         } else {
             // a single file without a parent project was provided, use the ~/documents/new project for files without project
             project = docsNewDir
+
+            if !dod.PathExists(docsNewDir) {
+                fmt.Printf("creating idea project %s ...\n", docsNewDir)
+                dod.CreateDir(docsNewDir)
+            }
         }
     }
 
@@ -81,7 +93,7 @@ func main() {
     }
 
     if isPiped() {
-        if isDirOrDie(path) {
+        if dod.IsDir(path) {
             log.Fatalf("can't pipe into dir %s\n", path)
         }
 
@@ -89,60 +101,34 @@ func main() {
     }
 }
 
-func createFileOrDie(file string) *os.File {
-    f, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    return f
-}
-
-func pathExistsOrDie(path string) bool {
-    if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
-      return false
-    } else if err != nil {
-        log.Fatal(err)
-    }
-    return true
-}
-
-func isDirOrDie(dir string) bool {
-    if f, err := os.Stat(dir); errors.Is(err, os.ErrNotExist) {
-      return false
-    } else if err != nil {
-        log.Fatal(err)
-    } else {
-        return f.IsDir()
-    }
-    return false
-}
-
 // return true for "Y", "y" and ""
 func choice(message string) bool {
+    if isPiped() {
+        panic("can't take user choice while piped")
+    }
+
     fmt.Print(message + " [Y/n] ")
 
     var c string
     fmt.Scanf("%s", &c)
-    c = strings.ToLower(strings.TrimSpace(c))
+    c = strings.TrimSpace(c)
 
-    return c == "y" || c == ""
+    return c == "y" || c == "Y" || c == ""
 }
 
 func findIdea(path string) string {
-    if !pathExistsOrDie(path) {
+    if !dod.PathExists(path) {
         return ""
     }
 
-    if !isDirOrDie(path) {
+    if !dod.IsDir(path) {
         path = filepath.Dir(path)
     }
 
     for true {
         idea := filepath.Join(path, ".idea")
 
-        if isDirOrDie(idea) {
+        if dod.IsDir(idea) {
             return path
         }
 
@@ -164,14 +150,12 @@ func startIntelliJ(paths ...string) {
         args = append(args, paths...)
     }
 
-    //fmt.Printf("/usr/bin/open %v\n", strings.Join(args, " "))
+    fmt.Printf("/usr/bin/open %v\n", strings.Join(args, " "))
 
     cmd := exec.Command("/usr/bin/open", args...)
     err := cmd.Run()
 
-    b, _ := cmd.CombinedOutput()
-
-    if b != nil {
+    if b, _ := cmd.CombinedOutput(); b != nil {
         fmt.Println(string(b))
     }
 
@@ -182,7 +166,7 @@ func startIntelliJ(paths ...string) {
 
 func isPiped() bool {
     fi, _ := os.Stdin.Stat()
-    return (fi.Mode() & os.ModeCharDevice) == 0
+    return fi.Mode() & os.ModeCharDevice == 0
 }
 
 func pipeToFile(file string) {
