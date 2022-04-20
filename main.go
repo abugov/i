@@ -13,8 +13,10 @@ import (
     dod "i/doordie"
 )
 
+var debug bool // debug mode
+
 func main() {
-    args := os.Args[1:]
+    args := parseArgs()
 
     usr, _ := user.Current()
     // use ~/documents/new project for temp files and files without a project
@@ -101,6 +103,20 @@ func main() {
     }
 }
 
+func parseArgs() []string {
+    var args []string
+
+    for _, a := range os.Args[1:] {
+        if a == "-debug" {
+            debug = true
+        } else {
+            args = append(args, a)
+        }
+    }
+
+    return args
+}
+
 // return true for "Y", "y" and ""
 func choice(message string) bool {
     if isPiped() {
@@ -150,7 +166,9 @@ func startIntelliJ(paths ...string) {
         args = append(args, paths...)
     }
 
-    fmt.Printf("/usr/bin/open %v\n", strings.Join(args, " "))
+    if debug {
+        fmt.Printf("/usr/bin/open %v\n", strings.Join(args, " "))
+    }
 
     cmd := exec.Command("/usr/bin/open", args...)
     err := cmd.Run()
