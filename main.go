@@ -19,41 +19,38 @@ func usage() {
 }
 
 func main() {
-	args := extractArgs()
+	project, file := parseArgs()
 
-	var file string
-	var project string
-
-	// no arguments provided, open/create project in the working directory
-	if len(args) == 0 {
-		project = findOrCreateProjectDir(dod.Getwd())
+	if file == "" && isPiped() {
+		log.Fatalf(fmt.Sprintf("can't pipe into dir %s\n", project))
 	}
 
-	// open the given file or project
-	if len(args) == 1 {
-		path := dod.Abs(args[0])
+	// traverse up the dir tree and locate an IDEA project.
+	dir := findIdeaDir(project)
 
-		if dod.IsDir(path) {
-			if isPiped() {
-				log.Fatalf("can't pipe into dir %s\n", path)
-			}
-
-			project = findOrCreateProjectDir(path)
-		} else {
-			file = path
-			project = findOrCreateProjectDir(dod.Getwd())
-
-			if !dod.PathExists(file) {
-				// create none-existing file
-				if isPiped() {
-					fmt.Printf("creating %s ...\n", file)
-				} else if !choice("create " + file + " ?") {
-					os.Exit(0)
-				}
-
-				dod.CreateFile(file).Close()
-			}
+	if dir != "" {
+		// open the project instead of the input sub-dir (otherwise IDEA will create a subproject).
+		project = dir
+	} else {
+		// project not found, IDEA will create a .idea dir
+		if isPiped() {
+			fmt.Printf("creating a new IDEA project at %s ...\n", project)
+		} else if !choice(fmt.Sprintf("create a new IDEA project at %s ?", project)) {
+			os.Exit(0)
 		}
+
+		dod.CreateDir(project)
+	}
+
+	if file != "" && !dod.PathExists(file) {
+		// create none-existing file
+		if isPiped() {
+			fmt.Printf("creating %s ...\n", file)
+		} else if !choice(fmt.Sprintf("create %s ?", file)) {
+			os.Exit(0)
+		}
+
+		dod.CreateFile(file).Close()
 	}
 
 	if file != "" {
@@ -67,7 +64,7 @@ func main() {
 	}
 }
 
-func extractArgs() []string {
+func parseArgs() (string, string) {
 	var args []string
 
 	for _, a := range os.Args[1:] {
@@ -85,7 +82,32 @@ func extractArgs() []string {
 		log.Fatalf("Too many arguments provided.")
 	}
 
-	return args
+	var project string
+	var file string
+
+	// no arguments provided, open/create project in the working directory
+	if len(args) == 0 {
+		project = dod.Getwd()
+	}
+
+	// open/create the given file or project
+	if len(args) == 1 {
+		path := dod.Abs(args[0])
+
+		if dod.IsDir(path) {
+			project = path
+		} else {
+			file = path
+			project = dod.Getwd()
+		}
+	}
+
+	if len(args) == 2 {
+		project = dod.Abs(args[0])
+		file = dod.Abs(args[1])
+	}
+
+	return project, file
 }
 
 // return true for "Y", "y" and ""
@@ -131,27 +153,6 @@ func findIdeaDir(path string) string {
 	}
 
 	return ""
-}
-
-func findOrCreateProjectDir(dir string) string {
-	// traverse up the dir tree and locate an IDEA project.
-	// if found, open the project instead of the input sub-dir, otherwise IDEA will create a sub-project.
-	project := findIdeaDir(dir)
-
-	// project not found up the hierarchy, IDEA will create the .idea dir
-	if project == "" {
-		project = dir
-
-		if isPiped() {
-			fmt.Printf("creating a new IDEA project at %s ...\n", project)
-		} else if !choice("create a new IDEA project at " + project + " ?") {
-			os.Exit(0)
-		}
-
-		dod.CreateDir(project)
-	}
-
-	return project
 }
 
 func launchIDEA(paths ...string) {
