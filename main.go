@@ -57,9 +57,9 @@ func main() {
 	}
 
 	if file != "" {
-		startIntelliJ(project, file)
+		launchIDEA(project, file)
 	} else {
-		startIntelliJ(project)
+		launchIDEA(project)
 	}
 
 	if isPiped() {
@@ -154,7 +154,7 @@ func findOrCreateProjectDir(dir string) string {
 	return project
 }
 
-func startIntelliJ(paths ...string) {
+func launchIDEA(paths ...string) {
 	args := []string{"-na", "/Applications/IntelliJ IDEA.app"}
 
 	if len(paths) > 0 {
