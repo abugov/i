@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func CreateFile(file string) *os.File {
@@ -54,6 +55,16 @@ func Getwd() string {
 }
 
 func Abs(path string) string {
+	if strings.Count(path, "~") > 1 {
+		log.Fatal("Invalid path: " + path)
+	} else if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			log.Fatal(err)
+		}
+		path = filepath.Join(home, path[2:])
+	}
+
 	var err error
 	path, err = filepath.Abs(path)
 	if err != nil {

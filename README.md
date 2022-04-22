@@ -11,15 +11,17 @@ If the project or file are not found, prompt the user for creation.
 ### OPTIONS
 
 ```
-project A path to directory with IDEA project (default is working directory).
+project A path to directory with IDEA project.
         If a project is not found, idea will recursively search for a parent project.
         If a parent project is not found idea will create one.
 
 file    Path to a file.
         If the file is not found idea will create one.
+        If a project is not passed, idea will try to locate a parent project for the
+        file. If a project cannot be found the working directory will be used. 
 
 When a single none-existing path is passed (file or project), idea will
-treat the path as file and use the working directory as project.
+treat the path as file.
 
 -f      Force creation without prompting for confirmation.
 -v      Verbose mode.

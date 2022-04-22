@@ -21,11 +21,27 @@ func usage() {
 func main() {
 	project, file := parseArgs()
 
+	if project != "" {
+		project = dod.Abs(project)
+	}
+
+	if file != "" {
+		file = dod.Abs(file)
+	}
+
+	// try to find a parent project from file
+	if project == "" && file != "" {
+		project = findIdeaDir(filepath.Dir(file))
+
+		if project == "" {
+			project = dod.Getwd()
+		}
+	}
+
 	if file == "" && isPiped() {
 		log.Fatalf(fmt.Sprintf("can't pipe into dir %s\n", project))
 	}
 
-	// traverse up the dir tree and locate an IDEA project.
 	dir := findIdeaDir(project)
 
 	if dir != "" {
@@ -95,19 +111,18 @@ func parseArgs() (string, string) {
 
 	// open/create the given file or project
 	if len(args) == 1 {
-		path := dod.Abs(args[0])
+		path := args[0]
 
 		if dod.IsDir(path) {
 			project = path
 		} else {
 			file = path
-			project = dod.Getwd()
 		}
 	}
 
 	if len(args) == 2 {
-		project = dod.Abs(args[0])
-		file = dod.Abs(args[1])
+		project = args[0]
+		file = args[1]
 	}
 
 	return project, file
@@ -132,6 +147,7 @@ func choice(message string) bool {
 	return c == "y" || c == "Y" || c == ""
 }
 
+// traverse up the dir tree to locate an IDEA project.
 func findIdeaDir(path string) string {
 	if !dod.PathExists(path) {
 		return ""
