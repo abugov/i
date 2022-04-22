@@ -1,7 +1,7 @@
 # IntelliJ IDEA launcher
 
 ### SYNOPSIS
-`idea [-fv] [project] [file]`
+`idea [-afv] [project] [file]`
 
 ### DESCRIPTION
 `idea` opens or creates a file and launches IntelliJ with the given or parent project.  
@@ -23,6 +23,9 @@ file    Path to a file.
 When a single none-existing path is passed (file or project), idea will
 treat the path as file.
 
+-a      First try to find a parent project for the passed file and if not found use
+        the passed project as an alternate project. Both project and file arguments
+        are expected.
 -f      Force creation without prompting for confirmation.
 -v      Verbose mode.
 ```

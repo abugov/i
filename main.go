@@ -11,8 +11,9 @@ import (
 	"strings"
 )
 
-var verbose bool // verbose mode
 var force bool   // force file/project creation
+var altproj bool // use the project as an alternate project
+var verbose bool // verbose mode
 
 func usage() {
 	fmt.Println("usage: idea [-vy] [project] [file]")
@@ -85,6 +86,9 @@ func parseArgs() (string, string) {
 
 	for _, a := range os.Args[1:] {
 		if a[0] == '-' {
+			if strings.Contains(a, "a") {
+				altproj = true
+			}
 			if strings.Contains(a, "v") {
 				verbose = true
 			}
@@ -99,6 +103,10 @@ func parseArgs() (string, string) {
 	if len(args) > 2 {
 		usage()
 		log.Fatalf("Too many arguments provided.")
+	}
+
+	if altproj && len(args) != 2 {
+		log.Fatalf("Both project and file are mandatory when using an alternate project.")
 	}
 
 	var project string
