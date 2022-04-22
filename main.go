@@ -3,114 +3,86 @@ package main
 import (
 	"bufio"
 	"fmt"
-	dod "i/doordie"
+	dod "idea/doordie"
 	"log"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
-var debug bool // debug mode
+var verbose bool // verbose mode
+var force bool   // force file/project creation
+
+func usage() {
+	fmt.Println("usage: idea [-vy] [project] [file]")
+}
 
 func main() {
-	args := parseArgs()
+	args := extractArgs()
 
-	usr, _ := user.Current()
-	// use ~/documents/new project for temp files and files without a project
-	docsNewDir := filepath.Join(usr.HomeDir, "Documents/new")
-
-	var path string
+	var file string
 	var project string
 
-	// no arguments provided, create a temp file and open the "new" project in a separate instance
+	// no arguments provided, open/create project in the working directory
 	if len(args) == 0 {
-		path = filepath.Join(docsNewDir, time.Now().Format("2006-01-02_15:04:05")+".txt")
-		project = docsNewDir
-
-		if !dod.PathExists(docsNewDir) {
-			fmt.Printf("creating idea project %s ...\n", docsNewDir)
-			dod.CreateDir(docsNewDir)
-		}
-
-		dod.CreateFile(path).Close()
+		project = findOrCreateProjectDir(dod.Getwd())
 	}
 
 	// open the given file or project
 	if len(args) == 1 {
-		var err error
-		path, err = filepath.Abs(args[0])
+		path := dod.Abs(args[0])
 
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// create none-existing file
-		if !dod.PathExists(path) {
-			if isPiped() {
-				fmt.Printf("creating %s ...\n", path)
-			} else if !choice("create " + path + " ?") {
-				os.Exit(0)
-			}
-
-			dod.CreateFile(path).Close()
-		}
-
-		// traverse up the dir tree and locate an idea project
-		project = findIdea(path)
-
-		if project != "" {
-			if dod.IsDir(path) {
-				// open the project instead of the input sub-dir, otherwise idea will create a sub-project
-				path = project
-				project = ""
-			}
-		} else if dod.IsDir(path) {
+		if dod.IsDir(path) {
 			if isPiped() {
 				log.Fatalf("can't pipe into dir %s\n", path)
 			}
 
-			// a single dir was provided but no project was found up the hierarchy, intellij will create .idea dir
-			if !choice("create new idea project at " + path + " ?") {
-				os.Exit(0)
-			}
+			project = findOrCreateProjectDir(path)
 		} else {
-			// a single file without a parent project was provided, use the ~/documents/new project for files without project
-			project = docsNewDir
+			file = path
+			project = findOrCreateProjectDir(dod.Getwd())
 
-			if !dod.PathExists(docsNewDir) {
-				fmt.Printf("creating idea project %s ...\n", docsNewDir)
-				dod.CreateDir(docsNewDir)
+			if !dod.PathExists(file) {
+				// create none-existing file
+				if isPiped() {
+					fmt.Printf("creating %s ...\n", file)
+				} else if !choice("create " + file + " ?") {
+					os.Exit(0)
+				}
+
+				dod.CreateFile(file).Close()
 			}
 		}
 	}
 
-	if project != "" {
-		startIntelliJ(project, path)
+	if file != "" {
+		startIntelliJ(project, file)
 	} else {
-		startIntelliJ(path)
+		startIntelliJ(project)
 	}
 
 	if isPiped() {
-		if dod.IsDir(path) {
-			log.Fatalf("can't pipe into dir %s\n", path)
-		}
-
-		pipeToFile(path)
+		pipeToFile(file)
 	}
 }
 
-func parseArgs() []string {
+func extractArgs() []string {
 	var args []string
 
 	for _, a := range os.Args[1:] {
-		if a == "-debug" {
-			debug = true
+		if a == "-v" {
+			verbose = true
+		} else if a == "-f" {
+			force = true
 		} else {
 			args = append(args, a)
 		}
+	}
+
+	if len(args) > 2 {
+		usage()
+		log.Fatalf("Too many arguments provided.")
 	}
 
 	return args
@@ -118,6 +90,10 @@ func parseArgs() []string {
 
 // return true for "Y", "y" and ""
 func choice(message string) bool {
+	if force {
+		return true
+	}
+
 	if isPiped() {
 		panic("can't take user choice while piped")
 	}
@@ -131,7 +107,7 @@ func choice(message string) bool {
 	return c == "y" || c == "Y" || c == ""
 }
 
-func findIdea(path string) string {
+func findIdeaDir(path string) string {
 	if !dod.PathExists(path) {
 		return ""
 	}
@@ -157,6 +133,27 @@ func findIdea(path string) string {
 	return ""
 }
 
+func findOrCreateProjectDir(dir string) string {
+	// traverse up the dir tree and locate an IDEA project.
+	// if found, open the project instead of the input sub-dir, otherwise IDEA will create a sub-project.
+	project := findIdeaDir(dir)
+
+	// project not found up the hierarchy, IDEA will create the .idea dir
+	if project == "" {
+		project = dir
+
+		if isPiped() {
+			fmt.Printf("creating a new IDEA project at %s ...\n", project)
+		} else if !choice("create a new IDEA project at " + project + " ?") {
+			os.Exit(0)
+		}
+
+		dod.CreateDir(project)
+	}
+
+	return project
+}
+
 func startIntelliJ(paths ...string) {
 	args := []string{"-na", "/Applications/IntelliJ IDEA.app"}
 
@@ -165,7 +162,7 @@ func startIntelliJ(paths ...string) {
 		args = append(args, paths...)
 	}
 
-	if debug {
+	if verbose {
 		fmt.Printf("/usr/bin/open %v\n", strings.Join(args, " "))
 	}
 
