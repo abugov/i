@@ -68,10 +68,13 @@ func parseArgs() (string, string) {
 	var args []string
 
 	for _, a := range os.Args[1:] {
-		if a == "-v" {
-			verbose = true
-		} else if a == "-f" {
-			force = true
+		if a[0] == '-' {
+			if strings.Contains(a, "v") {
+				verbose = true
+			}
+			if strings.Contains(a, "f") {
+				force = true
+			}
 		} else {
 			args = append(args, a)
 		}
