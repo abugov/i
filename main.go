@@ -220,8 +220,7 @@ func pipeToFile(file string) {
 
 	// TODO: check cmd.StdinPipe()
 	scanner := bufio.NewScanner(os.Stdin)
-	//buf := make([]byte, 0, 4*1024)
-	//scanner.Buffer(buf, 4*1024)
+	scanner.Buffer(make([]byte, 100), 10000000)
 
 	for scanner.Scan() {
 		fmt.Fprintln(f, scanner.Text())
